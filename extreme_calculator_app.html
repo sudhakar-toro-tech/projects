@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CALCX — Extreme Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#070a0f;
+  --bg2:#0c1018;
+  --surface:#111827;
+  --card:#141c2b;
+  --border:#1e2d44;
+  --border2:#263650;
+  --cyan:#00f5ff;
+  --cyan2:#00bcd4;
+  --orange:#ff6b35;
+  --green:#39ff14;
+  --purple:#bf00ff;
+  --yellow:#ffd700;
+  --red:#ff1744;
+  --text:#e2eaf8;
+  --muted:#4a6080;
+  --muted2:#6b88a8;
+  --radius:12px;
+  --glow-c:0 0 20px rgba(0,245,255,0.4);
+  --glow-o:0 0 20px rgba(255,107,53,0.4);
+  --glow-g:0 0 20px rgba(57,255,20,0.4);
+  --glow-p:0 0 20px rgba(191,0,255,0.4);
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+
+/* scanline overlay */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);
+}
+
+/* ── NAV ── */
+nav{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 28px;border-bottom:1px solid var(--border2);
+  background:rgba(7,10,15,0.95);backdrop-filter:blur(16px);
+  flex-shrink:0;z-index:100;position:relative;
+}
+nav::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);}
+.logo{
+  font-family:'Orbitron',monospace;font-size:1.2rem;font-weight:900;
+  color:var(--cyan);letter-spacing:3px;text-shadow:var(--glow-c);
+}
+.logo span{color:var(--orange);text-shadow:var(--glow-o);}
+.nav-links{display:flex;gap:6px;}
+.nav-btn{
+  background:transparent;border:1px solid var(--border2);
+  color:var(--muted2);padding:7px 16px;border-radius:6px;
+  font-family:'Rajdhani',sans-serif;font-size:0.9rem;font-weight:600;
+  cursor:pointer;transition:all 0.2s;letter-spacing:1px;text-transform:uppercase;
+}
+.nav-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+.nav-btn.active{background:rgba(0,245,255,0.1);border-color:var(--cyan);color:var(--cyan);box-shadow:var(--glow-c);}
+
+/* ── PAGES ── */
+.page{display:none;flex:1;overflow-y:auto;animation:fadeUp 0.3s ease}
+.page.active{display:flex;flex-direction:column}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── DASHBOARD ── */
+.dash-inner{padding:28px 32px;max-width:1200px;width:100%;margin:0 auto;}
+.dash-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:28px}
+.dash-title{font-family:'Orbitron',monospace;font-size:2rem;font-weight:900;
+  background:linear-gradient(135deg,var(--cyan),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.dash-subtitle{color:var(--muted2);font-size:0.95rem;margin-top:4px;letter-spacing:1px;}
+.dash-time{font-family:'Space Mono',monospace;font-size:0.8rem;color:var(--muted);text-align:right}
+.dash-time #clock{color:var(--cyan);font-size:1rem;}
+
+/* stats */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
+.scard{
+  background:var(--card);border:1px solid var(--border2);border-radius:var(--radius);
+  padding:20px 18px;position:relative;overflow:hidden;cursor:default;transition:transform 0.2s;
+}
+.scard:hover{transform:translateY(-2px);}
+.scard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--sc-color,var(--cyan))}
+.scard:nth-child(1){--sc-color:var(--cyan)}
+.scard:nth-child(2){--sc-color:var(--orange)}
+.scard:nth-child(3){--sc-color:var(--green)}
+.scard:nth-child(4){--sc-color:var(--purple)}
+.scard-label{font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px}
+.scard-val{font-family:'Space Mono',monospace;font-size:1.8rem;font-weight:700;color:var(--sc-color,var(--cyan))}
+.scard-sub{font-size:0.75rem;color:var(--muted);margin-top:5px}
+.scard-glow{position:absolute;bottom:-20px;right:-20px;width:70px;height:70px;border-radius:50%;
+  background:var(--sc-color,var(--cyan));opacity:0.06}
+
+/* activity chart */
+.dash-mid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px}
+.panel{background:var(--card);border:1px solid var(--border2);border-radius:var(--radius);padding:20px}
+.panel-title{font-size:0.75rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted2);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.panel-title::before{content:'';width:8px;height:8px;border-radius:2px;background:var(--cyan)}
+.bar-chart{display:flex;align-items:flex-end;gap:8px;height:80px}
+.bar{flex:1;border-radius:4px 4px 0 0;min-height:4px;transition:height 0.5s ease;position:relative}
+.bar:nth-child(1){background:linear-gradient(180deg,var(--cyan),rgba(0,245,255,0.3))}
+.bar:nth-child(2){background:linear-gradient(180deg,var(--orange),rgba(255,107,53,0.3))}
+.bar:nth-child(3){background:linear-gradient(180deg,var(--green),rgba(57,255,20,0.3))}
+.bar:nth-child(4){background:linear-gradient(180deg,var(--purple),rgba(191,0,255,0.3))}
+.bar:nth-child(5){background:linear-gradient(180deg,var(--yellow),rgba(255,215,0,0.3))}
+.bar:nth-child(6){background:linear-gradient(180deg,var(--cyan2),rgba(0,188,212,0.3))}
+.bar:nth-child(7){background:linear-gradient(180deg,var(--orange),rgba(255,107,53,0.3))}
+.bar-labels{display:flex;gap:8px;margin-top:6px}
+.bar-labels span{flex:1;text-align:center;font-size:0.6rem;color:var(--muted);letter-spacing:1px}
+.history-panel{overflow:hidden}
+.hist-list{list-style:none;max-height:110px;overflow-y:auto}
+.hist-list::-webkit-scrollbar{width:3px}
+.hist-list::-webkit-scrollbar-track{background:transparent}
+.hist-list::-webkit-scrollbar-thumb{background:var(--border2)}
+.hist-item{font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--muted2);padding:5px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:8px}
+.hist-item .hi-expr{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.hist-item .hi-res{color:var(--cyan);white-space:nowrap}
+.no-hist{font-size:0.75rem;color:var(--muted);font-style:italic}
+
+/* quick actions */
+.dash-actions h3{font-size:0.75rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted2);margin-bottom:14px}
+.action-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.act-card{
+  background:var(--card);border:1px solid var(--border2);border-radius:var(--radius);
+  padding:20px 16px;cursor:pointer;transition:all 0.25s;text-align:center;
+}
+.act-card:hover{border-color:var(--ac-col);transform:translateY(-3px);box-shadow:0 8px 30px rgba(0,0,0,0.4)}
+.act-card:nth-child(1){--ac-col:var(--orange)}
+.act-card:nth-child(2){--ac-col:var(--cyan)}
+.act-card:nth-child(3){--ac-col:var(--green)}
+.act-card:nth-child(4){--ac-col:var(--purple)}
+.act-card:nth-child(5){--ac-col:var(--yellow)}
+.act-card:nth-child(6){--ac-col:var(--red)}
+.act-icon{font-size:1.8rem;margin-bottom:8px}
+.act-card h4{font-size:0.95rem;font-weight:700;color:var(--ac-col);margin-bottom:4px;letter-spacing:1px}
+.act-card p{font-size:0.75rem;color:var(--muted);line-height:1.4}
+
+/* ── CALCULATOR PAGE ── */
+.calc-page-inner{
+  display:flex;flex-direction:column;align-items:center;
+  padding:20px 20px 16px;flex:1;overflow:hidden;
+}
+.mode-row{display:flex;gap:10px;margin-bottom:18px;width:100%;max-width:560px}
+.mode-btn{
+  flex:1;padding:11px 10px;border-radius:8px;border:1px solid var(--border2);
+  font-family:'Rajdhani',sans-serif;font-size:0.95rem;font-weight:700;
+  cursor:pointer;transition:all 0.2s;background:var(--card);color:var(--muted2);
+  letter-spacing:1px;text-transform:uppercase;
+}
+.mode-btn.m-basic.active,   .mode-btn.m-basic:hover  {background:rgba(255,107,53,0.15);border-color:var(--orange);color:var(--orange);box-shadow:var(--glow-o)}
+.mode-btn.m-normal.active,  .mode-btn.m-normal:hover  {background:rgba(0,245,255,0.1);border-color:var(--cyan);color:var(--cyan);box-shadow:var(--glow-c)}
+.mode-btn.m-extreme.active, .mode-btn.m-extreme:hover {background:rgba(191,0,255,0.15);border-color:var(--purple);color:var(--purple);box-shadow:var(--glow-p)}
+
+/* calc container */
+.calc-container{
+  width:100%;max-width:560px;background:var(--card);
+  border:1px solid var(--border2);border-radius:16px;overflow:hidden;
+  display:flex;flex-direction:column;flex:1;min-height:0;
+}
+.calc-display{
+  background:var(--bg);padding:16px 20px 12px;border-bottom:1px solid var(--border2);
+  position:relative;flex-shrink:0;
+}
+.calc-display::after{
+  content:'';position:absolute;bottom:0;left:10%;right:10%;height:1px;
+  background:linear-gradient(90deg,transparent,var(--disp-color,var(--cyan)),transparent);
+}
+.calc-mode-badge{
+  font-family:'Orbitron',monospace;font-size:0.55rem;letter-spacing:2px;
+  color:var(--disp-color,var(--cyan));text-transform:uppercase;margin-bottom:6px;opacity:0.8;
+}
+.calc-expr{
+  font-family:'Space Mono',monospace;font-size:0.78rem;color:var(--muted2);
+  min-height:18px;word-break:break-all;text-align:right;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;
+}
+.calc-result{
+  font-family:'Space Mono',monospace;font-size:2rem;font-weight:700;
+  text-align:right;margin-top:4px;word-break:break-all;
+  color:var(--disp-color,var(--cyan));text-shadow:0 0 15px currentColor;
+  transition:color 0.3s;
+}
+.calc-mem{font-size:0.65rem;color:var(--muted);margin-top:4px;font-family:'Space Mono',monospace}
+
+/* buttons grid */
+.calc-body{flex:1;overflow-y:auto;padding:2px}
+.calc-body::-webkit-scrollbar{width:3px}
+.calc-body::-webkit-scrollbar-thumb{background:var(--border2)}
+.btn-grid{display:grid;gap:2px;background:var(--border);padding:0}
+
+/* button styles */
+.cb{
+  background:var(--surface);border:none;color:var(--text);
+  font-family:'Rajdhani',sans-serif;font-size:0.95rem;font-weight:600;
+  padding:14px 6px;cursor:pointer;transition:all 0.12s;
+  letter-spacing:0.5px;position:relative;overflow:hidden;
+}
+.cb::after{content:'';position:absolute;inset:0;background:currentColor;opacity:0;transition:opacity 0.12s}
+.cb:hover::after{opacity:0.08}
+.cb:active::after{opacity:0.18}
+.cb:active{transform:scale(0.96)}
+.cb.num{color:var(--text)}
+.cb.op{color:var(--cyan);font-size:1.1rem}
+.cb.eq{background:var(--disp-color,var(--cyan));color:var(--bg);font-size:1.1rem;font-weight:700}
+.cb.eq:hover{filter:brightness(1.2)}
+.cb.clr{color:var(--orange)}
+.cb.sci{color:var(--green);font-size:0.82rem;letter-spacing:0}
+.cb.xtr{color:var(--purple);font-size:0.78rem;letter-spacing:0}
+.cb.mem-btn{color:var(--yellow);font-size:0.8rem}
+.cb.span2{grid-column:span 2}
+.cb.span3{grid-column:span 3}
+.cb.zero{grid-column:span 2}
+.cb.dark{background:#0d1420}
+.cb.bright{background:#1a2540}
+
+/* ── RESPONSIVE ── */
+@media(max-width:700px){
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+  .dash-mid{grid-template-columns:1fr}
+  .action-grid{grid-template-columns:repeat(2,1fr)}
+  .dash-inner{padding:16px}
+  .calc-result{font-size:1.6rem}
+  .cb{padding:12px 4px;font-size:0.85rem}
+}
+@media(max-width:420px){
+  .action-grid{grid-template-columns:1fr 1fr}
+  .stats-row{grid-template-columns:1fr 1fr}
+}
+
+/* scrollbar global */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* pulse animation for active calc */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.blink{animation:pulse 1s infinite}
+</style>
+</head>
+<body>
+
+<!-- ══ NAV ══ -->
+<nav>
+  <div class="logo">CALC<span>X</span></div>
+  <div class="nav-links">
+    <button class="nav-btn active" id="navDash" onclick="showPage('dashboard')">⬡ Dashboard</button>
+    <button class="nav-btn" id="navCalc" onclick="showPage('calculator')">⌗ Calculator</button>
+  </div>
+</nav>
+
+<!-- ══ DASHBOARD PAGE ══ -->
+<div id="page-dashboard" class="page active">
+<div class="dash-inner">
+
+  <div class="dash-header">
+    <div>
+      <div class="dash-title">CALCX DATABASE</div>
+      <div class="dash-subtitle">EXTREME CALCULATION SYSTEM — v3.0</div>
+    </div>
+    <div class="dash-time">
+      <div id="clock">00:00:00</div>
+      <div id="dateline" style="margin-top:2px"></div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="scard"><div class="scard-label">Total Calculations</div><div class="scard-val" id="st-total">0</div><div class="scard-sub">All sessions</div><div class="scard-glow"></div></div>
+    <div class="scard"><div class="scard-label">Basic Mode</div><div class="scard-val" id="st-basic">0</div><div class="scard-sub">Simple operations</div><div class="scard-glow"></div></div>
+    <div class="scard"><div class="scard-label">Normal Mode</div><div class="scard-val" id="st-normal">0</div><div class="scard-sub">Scientific ops</div><div class="scard-glow"></div></div>
+    <div class="scard"><div class="scard-label">Extreme Mode</div><div class="scard-val" id="st-extreme">0</div><div class="scard-sub">Advanced math</div><div class="scard-glow"></div></div>
+  </div>
+
+  <!-- MID: Chart + History -->
+  <div class="dash-mid">
+    <div class="panel">
+      <div class="panel-title">Session Activity</div>
+      <div class="bar-chart" id="barChart">
+        <div class="bar" id="b0" style="height:4px"></div>
+        <div class="bar" id="b1" style="height:4px"></div>
+        <div class="bar" id="b2" style="height:4px"></div>
+        <div class="bar" id="b3" style="height:4px"></div>
+        <div class="bar" id="b4" style="height:4px"></div>
+        <div class="bar" id="b5" style="height:4px"></div>
+        <div class="bar" id="b6" style="height:4px"></div>
+      </div>
+      <div class="bar-labels">
+        <span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>TODAY</span>
+      </div>
+    </div>
+    <div class="panel history-panel">
+      <div class="panel-title">Recent Calculations</div>
+      <ul class="hist-list" id="dashHistory">
+        <li class="no-hist">No calculations yet.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="dash-actions">
+    <h3>Quick Actions</h3>
+    <div class="action-grid">
+      <div class="act-card" onclick="goCalc('basic')">
+        <div class="act-icon">🔢</div>
+        <h4>BASIC</h4>
+        <p>Standard arithmetic operations</p>
+      </div>
+      <div class="act-card" onclick="goCalc('normal')">
+        <div class="act-icon">🔬</div>
+        <h4>NORMAL</h4>
+        <p>Scientific functions & trig</p>
+      </div>
+      <div class="act-card" onclick="goCalc('extreme')">
+        <div class="act-icon">⚡</div>
+        <h4>EXTREME</h4>
+        <p>Matrix, complex & advanced math</p>
+      </div>
+      <div class="act-card" onclick="openLastResult()">
+        <div class="act-icon">📌</div>
+        <h4>LAST RESULT</h4>
+        <p id="lastResultPreview">No result yet</p>
+      </div>
+      <div class="act-card" onclick="exportHistory()">
+        <div class="act-icon">📤</div>
+        <h4>EXPORT LOG</h4>
+        <p>Download calculation history</p>
+      </div>
+      <div class="act-card" onclick="clearAll()">
+        <div class="act-icon">🗑️</div>
+        <h4>RESET ALL</h4>
+        <p>Clear all data & stats</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ══ CALCULATOR PAGE ══ -->
+<div id="page-calculator" class="page">
+<div class="calc-page-inner">
+
+  <!-- MODE BUTTONS -->
+  <div class="mode-row">
+    <button class="mode-btn m-basic active" id="btnBasic"   onclick="setMode('basic')">Basic</button>
+    <button class="mode-btn m-normal"       id="btnNormal"  onclick="setMode('normal')">Normal</button>
+    <button class="mode-btn m-extreme"      id="btnExtreme" onclick="setMode('extreme')">⚡ Extreme</button>
+  </div>
+
+  <!-- CALCULATOR BOX -->
+  <div class="calc-container" id="calcContainer">
+    <div class="calc-display">
+      <div class="calc-mode-badge" id="modeBadge">BASIC MODE</div>
+      <div class="calc-expr" id="calcExpr">​</div>
+      <div class="calc-result" id="calcResult">0</div>
+      <div class="calc-mem" id="calcMem">MEM: 0</div>
+    </div>
+    <div class="calc-body">
+
+      <!-- BASIC BUTTONS (4×5) -->
+      <div class="btn-grid" id="grid-basic" style="grid-template-columns:repeat(4,1fr)">
+        <button class="cb clr"  onclick="ca()">AC</button>
+        <button class="cb op"   onclick="sign()">+/−</button>
+        <button class="cb op"   onclick="pct()">%</button>
+        <button class="cb op"   onclick="inp('/')">÷</button>
+
+        <button class="cb num"  onclick="num('7')">7</button>
+        <button class="cb num"  onclick="num('8')">8</button>
+        <button class="cb num"  onclick="num('9')">9</button>
+        <button class="cb op"   onclick="inp('*')">×</button>
+
+        <button class="cb num"  onclick="num('4')">4</button>
+        <button class="cb num"  onclick="num('5')">5</button>
+        <button class="cb num"  onclick="num('6')">6</button>
+        <button class="cb op"   onclick="inp('-')">−</button>
+
+        <button class="cb num"  onclick="num('1')">1</button>
+        <button class="cb num"  onclick="num('2')">2</button>
+        <button class="cb num"  onclick="num('3')">3</button>
+        <button class="cb op"   onclick="inp('+')">+</button>
+
+        <button class="cb num zero" onclick="num('0')">0</button>
+        <button class="cb num"  onclick="dot()">.</button>
+        <button class="cb eq"   onclick="calc()">=</button>
+      </div>
+
+      <!-- NORMAL BUTTONS (4×7) -->
+      <div class="btn-grid" id="grid-normal" style="display:none;grid-template-columns:repeat(4,1fr)">
+        <button class="cb sci"  onclick="sf('sin')">sin</button>
+        <button class="cb sci"  onclick="sf('cos')">cos</button>
+        <button class="cb sci"  onclick="sf('tan')">tan</button>
+        <button class="cb sci"  onclick="sf('log')">log</button>
+
+        <button class="cb sci"  onclick="sf('ln')">ln</button>
+        <button class="cb sci"  onclick="sf('sqrt')">√x</button>
+        <button class="cb sci"  onclick="sf('cbrt')">∛x</button>
+        <button class="cb sci"  onclick="sf('abs')">|x|</button>
+
+        <button class="cb sci"  onclick="sf('pow2')">x²</button>
+        <button class="cb sci"  onclick="sf('pow3')">x³</button>
+        <button class="cb sci"  onclick="inp('^')">xʸ</button>
+        <button class="cb sci"  onclick="sf('inv')">1/x</button>
+
+        <button class="cb sci"  onclick="cPi()">π</button>
+        <button class="cb sci"  onclick="cE()">e</button>
+        <button class="cb sci"  onclick="sf('fact')">n!</button>
+        <button class="cb sci"  onclick="sf('asin')">asin</button>
+
+        <button class="cb clr"  onclick="ca()">AC</button>
+        <button class="cb op"   onclick="sign()">+/−</button>
+        <button class="cb op"   onclick="pct()">%</button>
+        <button class="cb op"   onclick="inp('/')">÷</button>
+
+        <button class="cb num"  onclick="num('7')">7</button>
+        <button class="cb num"  onclick="num('8')">8</button>
+        <button class="cb num"  onclick="num('9')">9</button>
+        <button class="cb op"   onclick="inp('*')">×</button>
+
+        <button class="cb num"  onclick="num('4')">4</button>
+        <button class="cb num"  onclick="num('5')">5</button>
+        <button class="cb num"  onclick="num('6')">6</button>
+        <button class="cb op"   onclick="inp('-')">−</button>
+
+        <button class="cb num"  onclick="num('1')">1</button>
+        <button class="cb num"  onclick="num('2')">2</button>
+        <button class="cb num"  onclick="num('3')">3</button>
+        <button class="cb op"   onclick="inp('+')">+</button>
+
+        <button class="cb num zero" onclick="num('0')">0</button>
+        <button class="cb num"  onclick="dot()">.</button>
+        <button class="cb eq"   onclick="calc()">=</button>
+      </div>
+
+      <!-- EXTREME BUTTONS (5×10) -->
+      <div class="btn-grid" id="grid-extreme" style="display:none;grid-template-columns:repeat(5,1fr)">
+        <!-- Row 1: Memory -->
+        <button class="cb mem-btn dark" onclick="mStore()">MS</button>
+        <button class="cb mem-btn dark" onclick="mRecall()">MR</button>
+        <button class="cb mem-btn dark" onclick="mAdd()">M+</button>
+        <button class="cb mem-btn dark" onclick="mSub()">M−</button>
+        <button class="cb mem-btn dark" onclick="mClear()">MC</button>
+
+        <!-- Row 2: Advanced sci -->
+        <button class="cb xtr dark" onclick="xf('sinh')">sinh</button>
+        <button class="cb xtr dark" onclick="xf('cosh')">cosh</button>
+        <button class="cb xtr dark" onclick="xf('tanh')">tanh</button>
+        <button class="cb xtr dark" onclick="xf('log2')">log₂</button>
+        <button class="cb xtr dark" onclick="xf('exp')">eˣ</button>
+
+        <!-- Row 3 -->
+        <button class="cb xtr dark" onclick="xf('pow10')">10ˣ</button>
+        <button class="cb xtr dark" onclick="xf('floor')">⌊x⌋</button>
+        <button class="cb xtr dark" onclick="xf('ceil')">⌈x⌉</button>
+        <button class="cb xtr dark" onclick="xf('round')">round</button>
+        <button class="cb xtr dark" onclick="xf('deg2rad')">°→rad</button>
+
+        <!-- Row 4 -->
+        <button class="cb sci"  onclick="sf('sin')">sin</button>
+        <button class="cb sci"  onclick="sf('cos')">cos</button>
+        <button class="cb sci"  onclick="sf('tan')">tan</button>
+        <button class="cb sci"  onclick="sf('log')">log</button>
+        <button class="cb sci"  onclick="sf('ln')">ln</button>
+
+        <!-- Row 5 -->
+        <button class="cb sci"  onclick="sf('sqrt')">√x</button>
+        <button class="cb sci"  onclick="sf('pow2')">x²</button>
+        <button class="cb sci"  onclick="inp('^')">xʸ</button>
+        <button class="cb sci"  onclick="sf('inv')">1/x</button>
+        <button class="cb sci"  onclick="sf('fact')">n!</button>
+
+        <!-- Row 6 -->
+        <button class="cb xtr dark" onclick="cPi()">π</button>
+        <button class="cb xtr dark" onclick="cE()">e</button>
+        <button class="cb xtr dark" onclick="cPhi()">φ</button>
+        <button class="cb xtr dark" onclick="xf('hex')">→HEX</button>
+        <button class="cb xtr dark" onclick="xf('bin')">→BIN</button>
+
+        <!-- Row 7: Clear + ops -->
+        <button class="cb clr"  onclick="ca()">AC</button>
+        <button class="cb clr"  onclick="bk()">⌫</button>
+        <button class="cb op"   onclick="sign()">+/−</button>
+        <button class="cb op"   onclick="pct()">%</button>
+        <button class="cb op"   onclick="inp('/')">÷</button>
+
+        <!-- Row 8 -->
+        <button class="cb num"  onclick="num('7')">7</button>
+        <button class="cb num"  onclick="num('8')">8</button>
+        <button class="cb num"  onclick="num('9')">9</button>
+        <button class="cb op"   onclick="inp('*')">×</button>
+        <button class="cb op"   onclick="inp('-')">−</button>
+
+        <!-- Row 9 -->
+        <button class="cb num"  onclick="num('4')">4</button>
+        <button class="cb num"  onclick="num('5')">5</button>
+        <button class="cb num"  onclick="num('6')">6</button>
+        <button class="cb op"   onclick="inp('+')">+</button>
+        <button class="cb op"   onclick="xf('modulo')">mod</button>
+
+        <!-- Row 10 -->
+        <button class="cb num"  onclick="num('1')">1</button>
+        <button class="cb num"  onclick="num('2')">2</button>
+        <button class="cb num"  onclick="num('3')">3</button>
+        <button class="cb num zero" onclick="num('0')">0</button>
+        <button class="cb num"  onclick="dot()">.</button>
+
+        <!-- Row 11 -->
+        <button class="cb eq span3" onclick="calc()">=</button>
+        <button class="cb op span2" onclick="xf('sci_notation')">SCI</button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+/* ══════════════════════════════
+   STATE
+══════════════════════════════ */
+let cur = '0', expr = '', op = null, prev = null, justCalc = false;
+let memory = 0;
+let mode = 'basic';
+let stats = {total:0, basic:0, normal:0, extreme:0, last:'—'};
+let history = [];
+let barData = [12,8,19,5,22,14,0]; // simulated past, last is today
+
+const COLORS = {basic:'var(--orange)', normal:'var(--cyan)', extreme:'var(--purple)'};
+
+/* ══════════════════════════════
+   CLOCK
+══════════════════════════════ */
+function updateClock(){
+  const n = new Date();
+  const t = [n.getHours(),n.getMinutes(),n.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':');
+  const d = n.toLocaleDateString('en-IN',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+  const cl = document.getElementById('clock');
+  const dl = document.getElementById('dateline');
+  if(cl) cl.textContent = t;
+  if(dl) dl.textContent = d;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+/* ══════════════════════════════
+   PAGE NAVIGATION
+══════════════════════════════ */
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.getElementById(id==='dashboard'?'navDash':'navCalc').classList.add('active');
+  if(id==='dashboard') refreshDash();
+}
+
+function goCalc(m){
+  setMode(m);
+  showPage('calculator');
+}
+
+/* ══════════════════════════════
+   MODE
+══════════════════════════════ */
+function setMode(m){
+  mode = m;
+  ['basic','normal','extreme'].forEach(x=>{
+    document.getElementById('btn'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('active', x===m);
+    document.getElementById('grid-'+x).style.display = x===m ? 'grid' : 'none';
+  });
+  const badge = document.getElementById('modeBadge');
+  badge.textContent = m.toUpperCase() + ' MODE';
+  // color theme
+  const col = COLORS[m];
+  document.getElementById('calcContainer').style.setProperty('--disp-color', col);
+  document.querySelectorAll('.cb.eq').forEach(b=> b.style.background = col.replace('var(','').replace(')','').trim());
+  ca();
+}
+
+/* ══════════════════════════════
+   DISPLAY
+══════════════════════════════ */
+function disp(){
+  document.getElementById('calcResult').textContent = cur;
+  document.getElementById('calcExpr').textContent = expr || '\u200b';
+  document.getElementById('calcMem').textContent = 'MEM: ' + fmtNum(memory);
+}
+
+function fmtNum(n){
+  if(typeof n !== 'number') return n;
+  if(Math.abs(n) > 1e15 || (Math.abs(n) < 1e-9 && n !== 0)) return n.toExponential(6);
+  const s = parseFloat(n.toFixed(10)).toString();
+  return s;
+}
+
+/* ══════════════════════════════
+   INPUT HANDLERS
+══════════════════════════════ */
+function num(n){
+  if(justCalc){ cur=n; expr=''; justCalc=false; }
+  else cur = (cur==='0' && n!=='.') ? n : cur+n;
+  disp();
+}
+function dot(){
+  if(justCalc){ cur='0.'; justCalc=false; disp(); return; }
+  if(!cur.includes('.')) { cur+='.'; disp(); }
+}
+function inp(o){
+  if(op && !justCalc) intermediate();
+  prev = cur; op = o;
+  const sym = {'+':'+','-':'−','*':'×','/':'÷','^':'xʸ'}[o]||o;
+  expr = fmtNum(parseFloat(cur)||0) + ' ' + sym + ' ';
+  justCalc = false; cur = '0'; disp();
+}
+function ca(){ cur='0'; expr=''; op=null; prev=null; justCalc=false; disp(); }
+function bk(){ cur = cur.length>1 ? cur.slice(0,-1) : '0'; disp(); }
+function sign(){ cur = (parseFloat(cur)*-1).toString(); disp(); }
+function pct(){ cur = (parseFloat(cur)/100).toString(); disp(); }
+
+/* ══════════════════════════════
+   CALCULATION
+══════════════════════════════ */
+function intermediate(){
+  if(!op||prev===null) return;
+  const a=parseFloat(prev), b=parseFloat(cur);
+  cur = String(doOp(a,op,b));
+  prev = cur;
+}
+
+function doOp(a,o,b){
+  switch(o){
+    case '+': return a+b;
+    case '-': return a-b;
+    case '*': return a*b;
+    case '/': return b!==0 ? a/b : 'Error:DIV0';
+    case '^': return Math.pow(a,b);
+    default: return b;
+  }
+}
+
+function calc(){
+  if(!op||prev===null) return;
+  const a=parseFloat(prev), b=parseFloat(cur);
+  const sym = {'+':'+','-':'−','*':'×','/':'÷','^':'xʸ'}[op]||op;
+  const fullExpr = fmtNum(a)+' '+sym+' '+fmtNum(b);
+  let r = doOp(a,op,b);
+  const res = r==='Error:DIV0' ? 'Error: ÷0' : fmtNum(typeof r==='number' ? r : parseFloat(r));
+  expr = fullExpr + ' =';
+  cur = res;
+  op=null; prev=null; justCalc=true;
+  disp();
+  record(fullExpr+' = '+res);
+  stats.total++; stats[mode]++; stats.last=res;
+  barData[6]++;
+  updateStats();
+}
+
+/* ══════════════════════════════
+   SCIENTIFIC FUNCTIONS
+══════════════════════════════ */
+function sf(fn){
+  const v = parseFloat(cur);
+  let r, label;
+  switch(fn){
+    case 'sin':   r=Math.sin(v*Math.PI/180);   label='sin('+v+'°)'; break;
+    case 'cos':   r=Math.cos(v*Math.PI/180);   label='cos('+v+'°)'; break;
+    case 'tan':   r=Math.tan(v*Math.PI/180);   label='tan('+v+'°)'; break;
+    case 'asin':  r=Math.asin(v)*180/Math.PI;  label='asin('+v+')'; break;
+    case 'log':   r=v>0?Math.log10(v):'Error'; label='log('+v+')'; break;
+    case 'ln':    r=v>0?Math.log(v):'Error';   label='ln('+v+')'; break;
+    case 'sqrt':  r=v>=0?Math.sqrt(v):'Error'; label='√('+v+')'; break;
+    case 'cbrt':  r=Math.cbrt(v);              label='∛('+v+')'; break;
+    case 'abs':   r=Math.abs(v);               label='|'+v+'|'; break;
+    case 'pow2':  r=v*v;                        label='('+v+')²'; break;
+    case 'pow3':  r=v*v*v;                      label='('+v+')³'; break;
+    case 'inv':   r=v!==0?1/v:'Error';         label='1/('+v+')'; break;
+    case 'fact':
+      if(v<0||!Number.isInteger(v)||v>170){r='Error';label='factorial error';}
+      else{let f=1;for(let i=2;i<=v;i++)f*=i; r=f; label=v+'!';}
+      break;
+    default: r='Error'; label=fn;
+  }
+  const res = r==='Error' ? 'Error' : fmtNum(typeof r==='number' ? r : parseFloat(r));
+  expr = label + ' =';
+  cur = res;
+  justCalc=true; disp();
+  record(label+' = '+res);
+  stats.total++; stats[mode]++; stats.last=res;
+  barData[6]++;
+  updateStats();
+}
+
+function cPi(){ cur=Math.PI.toString(); justCalc=false; disp(); }
+function cE(){  cur=Math.E.toString();  justCalc=false; disp(); }
+function cPhi(){ cur='1.6180339887498948482'; justCalc=false; disp(); }
+
+/* ══════════════════════════════
+   EXTREME FUNCTIONS
+══════════════════════════════ */
+function xf(fn){
+  const v = parseFloat(cur);
+  let r, label;
+  switch(fn){
+    case 'sinh':      r=Math.sinh(v);       label='sinh('+v+')'; break;
+    case 'cosh':      r=Math.cosh(v);       label='cosh('+v+')'; break;
+    case 'tanh':      r=Math.tanh(v);       label='tanh('+v+')'; break;
+    case 'log2':      r=v>0?Math.log2(v):'Error'; label='log₂('+v+')'; break;
+    case 'exp':       r=Math.exp(v);        label='e^('+v+')'; break;
+    case 'pow10':     r=Math.pow(10,v);     label='10^('+v+')'; break;
+    case 'floor':     r=Math.floor(v);      label='⌊'+v+'⌋'; break;
+    case 'ceil':      r=Math.ceil(v);       label='⌈'+v+'⌉'; break;
+    case 'round':     r=Math.round(v);      label='round('+v+')'; break;
+    case 'deg2rad':   r=v*Math.PI/180;      label=v+'°→rad'; break;
+    case 'modulo':
+      if(!op||prev===null){ alert('Enter first number, press mod, then second number, press ='); return; }
+      const a2=parseFloat(prev), b2=v;
+      r = b2!==0 ? a2%b2 : 'Error';
+      label=prev+' mod '+v;
+      expr=label+' ='; cur=r==='Error'?'Error':fmtNum(r); op=null; prev=null; justCalc=true; disp();
+      record(label+' = '+cur); stats.total++; stats.extreme++; stats.last=cur; barData[6]++; updateStats();
+      return;
+    case 'hex':
+      const iv=Math.floor(Math.abs(v));
+      r=(v<0?'-':'')+iv.toString(16).toUpperCase(); label='hex('+v+')';
+      expr=label+' ='; cur=r; justCalc=true; disp();
+      record(label+' = '+r); stats.total++; stats.extreme++; stats.last=r; barData[6]++; updateStats();
+      return;
+    case 'bin':
+      const bv=Math.floor(Math.abs(v));
+      r=(v<0?'-':'')+bv.toString(2); label='bin('+v+')';
+      expr=label+' ='; cur=r; justCalc=true; disp();
+      record(label+' = '+r); stats.total++; stats.extreme++; stats.last=r; barData[6]++; updateStats();
+      return;
+    case 'sci_notation':
+      r=parseFloat(cur).toExponential(6); label='SCI('+cur+')';
+      expr=label+' ='; cur=String(r); justCalc=true; disp();
+      record(label+' = '+r); stats.total++; stats.extreme++; stats.last=r; barData[6]++; updateStats();
+      return;
+    default: r='Error'; label=fn;
+  }
+  const res = r==='Error' ? 'Error' : fmtNum(typeof r==='number' ? r : parseFloat(r));
+  expr = label + ' =';
+  cur = res;
+  justCalc=true; disp();
+  record(label+' = '+res);
+  stats.total++; stats.extreme++; stats.last=res;
+  barData[6]++;
+  updateStats();
+}
+
+/* ══════════════════════════════
+   MEMORY
+══════════════════════════════ */
+function mStore(){ memory=parseFloat(cur)||0; disp(); flashMem('STORED'); }
+function mRecall(){ cur=fmtNum(memory); justCalc=false; disp(); }
+function mAdd(){ memory+=parseFloat(cur)||0; disp(); flashMem('M+'); }
+function mSub(){ memory-=parseFloat(cur)||0; disp(); flashMem('M−'); }
+function mClear(){ memory=0; disp(); flashMem('CLEARED'); }
+function flashMem(msg){
+  const m=document.getElementById('calcMem');
+  m.textContent='MEM: '+msg;
+  setTimeout(()=>{ m.textContent='MEM: '+fmtNum(memory); },900);
+}
+
+/* ══════════════════════════════
+   HISTORY & STATS
+══════════════════════════════ */
+function record(entry){
+  history.unshift(entry);
+  if(history.length>50) history.pop();
+  refreshDash();
+}
+
+function refreshDash(){
+  updateStats();
+  // history list
+  const ul = document.getElementById('dashHistory');
+  if(!history.length){ ul.innerHTML='<li class="no-hist">No calculations yet.</li>'; return; }
+  ul.innerHTML = history.slice(0,12).map(h=>{
+    const parts = h.split(' = ');
+    return `<li class="hist-item"><span class="hi-expr">${parts[0]||h}</span><span class="hi-res">${parts[1]||''}</span></li>`;
+  }).join('');
+  // bars
+  const max = Math.max(...barData, 1);
+  barData.forEach((v,i)=>{
+    const b = document.getElementById('b'+i);
+    if(b) b.style.height = Math.max(4, (v/max)*76)+'px';
+  });
+  // last result preview
+  const lrp = document.getElementById('lastResultPreview');
+  if(lrp) lrp.textContent = stats.last !== '—' ? '= '+stats.last : 'No result yet';
+}
+
+function updateStats(){
+  document.getElementById('st-total').textContent   = stats.total;
+  document.getElementById('st-basic').textContent   = stats.basic;
+  document.getElementById('st-normal').textContent  = stats.normal;
+  document.getElementById('st-extreme').textContent = stats.extreme;
+}
+
+function clearAll(){
+  history=[]; stats={total:0,basic:0,normal:0,extreme:0,last:'—'};
+  memory=0; barData=[12,8,19,5,22,14,0];
+  ca(); refreshDash(); updateStats();
+}
+
+function openLastResult(){
+  if(stats.last!=='—'){ goCalc(mode); cur=stats.last; justCalc=false; disp(); }
+}
+
+function exportHistory(){
+  if(!history.length){ alert('No history to export.'); return; }
+  const txt = '=== CALCX History Export ===\n'+new Date().toLocaleString()+'\n\n'+history.join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/plain;charset=utf-8,'+encodeURIComponent(txt);
+  a.download = 'calcx_history.txt';
+  a.click();
+}
+
+/* ══════════════════════════════
+   KEYBOARD SUPPORT
+══════════════════════════════ */
+document.addEventListener('keydown', e => {
+  const pg = document.getElementById('page-calculator');
+  if(!pg.classList.contains('active')) return;
+  const k = e.key;
+  if(k>='0'&&k<='9') num(k);
+  else if(k==='.') dot();
+  else if(k==='+') inp('+');
+  else if(k==='-') inp('-');
+  else if(k==='*') inp('*');
+  else if(k==='/'){e.preventDefault();inp('/');}
+  else if(k==='^') inp('^');
+  else if(k==='Enter'||k==='=') calc();
+  else if(k==='Escape') ca();
+  else if(k==='Backspace') bk();
+});
+
+/* ══════════════════════════════
+   INIT
+══════════════════════════════ */
+setMode('basic');
+disp();
+refreshDash();
+updateStats();
+</script>
+</body>
+</html>
